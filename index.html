@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Music Player</title>
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #a855f7, #3b82f6);
+        }
+        /* Mobile layout transition */
+        .screen-container {
+            transition: transform 0.4s ease-in-out;
+            transform: translateX(0);
+        }
+        .screen-container.playlist-view {
+            transform: translateX(-33.333%);
+        }
+        .screen-container.settings-view {
+            transform: translateX(-66.666%);
+        }
+        /* Custom styling for the progress bar */
+        .seek-bar-container {
+            width: 100%;
+            height: 6px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 9999px;
+            outline: none;
+            cursor: pointer;
+        }
+        .seek-bar {
+            height: 100%;
+            background: #4f46e5;
+            border-radius: 9999px;
+            transition: width 0.1s linear;
+        }
+        /* Custom styling for the AI loading spinner */
+        .spinner {
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border-left-color: #4f46e5;
+            animation: spin 1s ease infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Toggle switch */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #4f46e5;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        /* Album art animation */
+        .album-art-container {
+            transition: transform 0.3s ease;
+        }
+        .album-art-container.playing {
+            animation: rotateAlbumArt 15s linear infinite;
+        }
+        @keyframes rotateAlbumArt {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        /* Like button animation */
+        .like-btn {
+            transition: all 0.3s ease;
+        }
+        .like-btn.active {
+            color: #ef4444;
+            fill: #ef4444;
+        }
+        /* Settings panel */
+        .settings-panel {
+            background: white;
+            color: #374151;
+        }
+        .settings-item {
+            border-bottom: 1px solid #e5e7eb;
+        }
+        /* Chatbot panel */
+        .chatbot-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            width: 90%;
+            max-width: 500px;
+            height: 70vh;
+            background: white;
+            border-radius: 20px;
+            z-index: 100;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            transition: all 0.3s ease;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .chatbot-panel.open {
+            transform: translate(-50%, -50%) scale(1);
+        }
+        .chatbot-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 99;
+            display: none;
+        }
+        .chatbot-overlay.open {
+            display: block;
+        }
+        /* Volume slider */
+        .volume-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 5px;
+            border-radius: 5px;
+            background: #d1d5db;
+            outline: none;
+        }
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #4f46e5;
+            cursor: pointer;
+        }
+        /* Tag input */
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            background-color: #eef2ff;
+            color: #4f46e5;
+            border-radius: 9999px;
+            padding: 0.25rem 0.75rem;
+            margin: 0.25rem;
+            font-size: 0.875rem;
+        }
+        .tag-remove {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 1rem;
+            height: 1rem;
+            border-radius: 50%;
+            background: #c7d2fe;
+            margin-left: 0.5rem;
+            cursor: pointer;
+        }
+        /* Upload button */
+        .file-upload-btn {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+        .file-upload-btn input[type=file] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        /* Audio quality selector */
+        .quality-selector {
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            border: 1px solid #d1d5db;
+            background-color: white;
+            color: #374151;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+    <!-- Chatbot Overlay -->
+    <div id="chatbot-overlay" class="chatbot-overlay"></div>
+    
+    <!-- Chatbot Panel -->
+    <div id="chatbot-panel" class="chatbot-panel">
+        <div class="flex justify-between items-center p-4 border-b">
+            <h2 class="text-xl font-bold">AI Assistant</h2>
+            <button id="close-chatbot" class="text-gray-500 hover:text-gray-700 p-2">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <iframe src="https://1ajik5.github.io/yadavAi/" class="w-full h-full border-none" id="chatbot-iframe"></iframe>
+    </div>
+
+    <!-- Mobile Screen Container -->
+    <div class="relative w-full max-w-sm h-[700px] overflow-hidden rounded-[40px] shadow-2xl bg-white">
+        <!-- Three-screen layout wrapper -->
+        <div class="flex h-full w-[300%] screen-container" id="screen-container">
+            <!-- Now Playing Screen -->
+            <div id="now-playing-screen" class="w-1/3 h-full flex flex-col p-8 bg-white text-gray-800">
+                <!-- Top Bar -->
+                <div class="flex items-center justify-between mb-4">
+                    <button class="text-gray-400 p-2 rounded-full hover:bg-gray-100 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                        </svg>
+                    </button>
+                    <h1 class="text-lg font-bold">Now Playing</h1>
+                    <button id="chatbot-toggle" class="text-gray-400 p-2 rounded-full hover:bg-gray-100 transition-colors">
+                        <i class="fas fa-robot"></i>
+                    </button>
+                </div>
+                
+                <!-- Album Art & Controls -->
+                <div class="flex-grow flex flex-col items-center justify-center">
+                    <div id="album-art-container" class="relative w-64 h-64 rounded-full overflow-hidden shadow-lg mb-8 album-art-container">
+                        <img id="album-art" src="https://placehold.co/256x256/4f46e5/FFFFFF?text=Album+Art" alt="Album Art" class="object-cover w-full h-full">
+                    </div>
+                    
+                    <h2 id="song-title" class="text-2xl font-bold text-center mt-6">Song Title</h2>
+                    <p id="artist-name" class="text-sm text-gray-500 mb-6">Artist Name</p>
+
+                    <!-- Playback Controls -->
+                    <div class="flex items-center justify-center space-x-8 mb-6">
+                        <button id="prev-btn" class="text-gray-500 hover:text-gray-800 transition-colors p-3 rounded-full hover:bg-gray-100">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 16.811L19.537 12 21 7.189M12 16.811L10.537 12 12 7.189M3 12h7.5" />
+                            </svg>
+                        </button>
+                        <button id="play-pause-btn" class="text-white p-5 rounded-full shadow-lg transition-colors" style="background: linear-gradient(135deg, #a855f7, #3b82f6);">
+                            <svg id="play-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" />
+                            </svg>
+                            <svg id="pause-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8 hidden">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
+                            </svg>
+                        </button>
+                        <button id="next-btn" class="text-gray-500 hover:text-gray-800 transition-colors p-3 rounded-full hover:bg-gray-100">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.811L4.463 12 3 7.189M12 16.811L13.463 12 12 7.189m9 4.811h-7.5" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Volume Control -->
+                    <div class="w-full mb-6">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm text-gray-500">Volume</span>
+                            <span id="volume-level" class="text-sm text-gray-500">75%</span>
+                        </div>
+                        <input type="range" min="0" max="100" value="75" class="volume-slider" id="volume-control">
+                    </div>
+
+                    <!-- Seek Bar & Time -->
+                    <div class="w-full">
+                        <div class="seek-bar-container mb-2">
+                            <div id="seek-bar" class="seek-bar" style="width: 0%"></div>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-500 font-medium">
+                            <span id="current-time">0:00</span>
+                            <span id="total-time">0:00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Playlist Screen (Search Screen) -->
+            <div id="playlist-screen" class="w-1/3 h-full flex flex-col p-8 text-gray-800 bg-gray-50">
+                <!-- Top Bar -->
+                <div class="flex items-center justify-between mb-8">
+                    <button id="back-to-now-playing-btn" class="text-gray-400 p-2 rounded-full hover:bg-gray-200 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                        </svg>
+                    </button>
+                    <h1 class="text-lg font-bold">Music Library</h1>
+                    <button class="text-gray-400 p-2 rounded-full hover:bg-gray-200 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M12 17.25h8.25" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <!-- Tabs -->
+                <div class="flex space-x-4 mb-6">
+                    <button id="popular-tab" class="text-sm font-semibold px-4 py-2 text-white rounded-lg shadow-md" style="background: linear-gradient(90deg, #a855f7, #3b82f6);">Popular</button>
+                    <button id="recent-tab" class="text-sm font-medium px-4 py-2 text-gray-500 bg-gray-100 rounded-lg">Recent Played</button>
+                    <button id="search-tab" class="text-sm font-medium px-4 py-2 text-gray-500 bg-gray-100 rounded-lg">Search</button>
+                </div>
+
+                <!-- Upload Music Button -->
+                <div class="mb-6 bg-white p-4 rounded-xl shadow-sm">
+                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Your Music</h3>
+                    <div class="file-upload-btn">
+                        <button class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors w-full">
+                            <i class="fas fa-upload mr-2"></i>Upload Music Files
+                        </button>
+                        <input type="file" id="music-upload" accept="audio/*" multiple>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2">Upload music from your device to create playlists</p>
+                </div>
+
+                <!-- AI Recommendation Feature -->
+                <div id="recommendation-panel" class="mb-6 bg-white p-4 rounded-xl shadow-sm">
+                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">AI-Powered Playlist</h3>
+                    <div class="flex flex-col space-y-2">
+                        <input type="text" id="recommendation-prompt" class="p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="e.g., songs for a party...">
+                        <button id="generate-recommendations-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">✨ Create Playlist</button>
+                    </div>
+                    <div id="recommendations-loading" class="flex items-center justify-center p-4 hidden mt-4">
+                        <div class="spinner"></div>
+                        <p class="ml-2 text-gray-500 text-sm">Generating recommendations...</p>
+                    </div>
+                    <div id="recommendations-results" class="mt-4 hidden">
+                        <h4 class="font-medium text-gray-700 mb-2">Recommended Playlist:</h4>
+                        <ul id="ai-playlist" class="space-y-2"></ul>
+                    </div>
+                </div>
+
+                <!-- Search Panel -->
+                <div id="search-panel" class="mb-6 bg-white p-4 rounded-xl shadow-sm hidden">
+                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Search for Music</h3>
+                    <div class="flex space-x-2">
+                        <input type="text" id="search-input" class="flex-grow p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="Search for songs, artists...">
+                        <button id="search-btn" class="bg-blue-600 text-white p-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="search-loading" class="flex items-center justify-center p-4 hidden mt-4">
+                        <div class="spinner"></div>
+                        <p class="ml-2 text-gray-500 text-sm">Searching...</p>
+                    </div>
+                </div>
+
+                <!-- Playlist & Search Results -->
+                <ul id="playlist" class="space-y-3 overflow-y-auto flex-grow pr-2">
+                    <!-- Playlist items will be injected here by JavaScript -->
+                </ul>
+                <ul id="search-results" class="space-y-3 overflow-y-auto flex-grow hidden pr-2">
+                    <!-- Search results will be injected here -->
+                </ul>
+            </div>
+            
+            <!-- Settings Screen -->
+            <div id="settings-screen" class="w-1/3 h-full flex flex-col settings-panel overflow-y-auto">
+                <!-- Header -->
+                <header class="flex items-center justify-between p-6 border-b border-gray-200">
+                    <button id="back-from-settings-btn" class="text-gray-500 hover:text-gray-700 transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    <h1 class="text-xl font-semibold">Settings</h1>
+                    <div class="w-6"></div> <!-- Spacer -->
+                </header>
+
+                <!-- User Profile Section -->
+                <div class="flex items-center space-x-4 p-6 settings-item">
+                    <div class="relative">
+                        <img id="profile-picture" src="https://placehold.co/64x64/4f46e5/FFFFFF?text=U" alt="Profile Picture" class="w-16 h-16 rounded-full border-2 border-indigo-100">
+                        <button id="change-profile-pic" class="absolute bottom-0 right-0 bg-indigo-600 text-white p-1 rounded-full">
+                            <i class="fas fa-camera text-xs"></i>
+                        </button>
+                    </div>
+                    <div class="flex-1">
+                        <input type="text" id="profile-name" class="text-lg font-medium border-none focus:ring-0 p-0" value="User Name">
+                        <p class="text-sm text-gray-500">Premium Member</p>
+                    </div>
+                    <button id="save-profile" class="text-indigo-600 hover:text-indigo-800">
+                        <i class="fas fa-save"></i>
+                    </button>
+                </div>
+
+                <!-- Settings List -->
+                <div class="flex-grow">
+                    <!-- Account Settings -->
+                    <div class="p-4 settings-item">
+                        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Account</h2>
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-700">Subscription</span>
+                                <span class="text-sm bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full">Premium</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-700">Payment Method</span>
+                                <span class="text-sm text-gray-500">•••• 1234</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Playback Settings -->
+                    <div class="p-4 settings-item">
+                        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Playback</h2>
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-gray-700">Volume Level</p>
+                                    <p class="text-xs text-gray-500">Adjust volume level</p>
+                                </div>
+                                <span id="settings-volume-level" class="text-sm text-gray-500">75%</span>
+                            </div>
+                            <input type="range" min="0" max="100" value="75" class="volume-slider w-full" id="settings-volume-control">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-gray-700">Audio Quality</p>
+                                    <p class="text-xs text-gray-500">Streaming quality</p>
+                                </div>
+                                <select id="audio-quality" class="quality-selector text-sm">
+                                    <option value="low">Low</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="high" selected>High</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-gray-700">Equalizer</p>
+                                    <p class="text-xs text-gray-500">Sound preferences</p>
+                                </div>
+                                <select id="equalizer" class="quality-selector text-sm">
+                                    <option value="off" selected>Off</option>
+                                    <option value="bass">Bass Boost</option>
+                                    <option value="treble">Treble Boost</option>
+                                    <option value="vocal">Vocal Boost</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- User Interests -->
+                    <div class="p-4 settings-item">
+                        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Your Interests</h2>
+                        <div class="space-y-4">
+                            <div class="flex flex-wrap" id="interests-container">
+                                <!-- Tags will be added here -->
+                            </div>
+                            <div class="flex space-x-2">
+                                <input type="text" id="new-interest" class="flex-grow p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="Add interest...">
+                                <button id="add-interest-btn" class="bg-blue-600 text-white p-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notifications Settings -->
+                    <div class="p-4 settings-item">
+                        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Notifications</h2>
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-gray-700">Push Notifications</p>
+                                    <p class="text-xs text-gray-500">Receive app notifications</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="push-notifications" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-gray-700">Email Notifications</p>
+                                    <p class="text-xs text-gray-500">Receive email updates</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="email-notifications" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-gray-700">New Music Alerts</p>
+                                    <p class="text-xs text-gray-500">Get notified about new releases</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="new-music-alerts">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-gray-700">Playlist Updates</p>
+                                    <p class="text-xs text-gray-500">Notifications about your playlists</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="playlist-updates" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Privacy & Security -->
+                    <div class="p-4 settings-item">
+                        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Privacy & Security</h2>
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-gray-700">Private Session</p>
+                                    <p class="text-xs text-gray-500">Listen privately</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="private-session">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-gray-700">Explicit Content</p>
+                                    <p class="text-xs text-gray-500">Allow explicit content</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="explicit-content" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Support -->
+                    <div class="p-4">
+                        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Support</h2>
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-700">Help & FAQ</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                                </svg>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-700">Contact Us</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                                </svg>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-700">About</span>
+                                <span class="text-sm text-gray-500">Version 2.4.1</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sign Out Button -->
+                <div class="p-6 border-t border-gray-200">
+                    <button id="sign-out-btn" class="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium rounded-lg transition">
+                        Sign Out
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation Bar -->
+        <div class="absolute bottom-0 left-0 right-0 h-20 bg-white rounded-b-[40px] shadow-2xl flex justify-around items-center px-4 border-t border-gray-200">
+            <button id="home-nav-btn" class="flex flex-col items-center text-indigo-600 font-semibold text-xs">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                    <path d="M11.47 3.864a.75.75 0 011.06 0l8.63 8.63c.241.24.37.555.37.886V19.5a.75.75 0 01-.75.75H4.5a.75.75 0 01-.75-.75v-6.12c0-.331.129-.646.37-.887l8.63-8.63z" />
+                </svg>
+                Home
+            </button>
+            <button id="search-nav-btn" class="flex flex-col items-center text-gray-400 hover:text-gray-600 transition-colors font-semibold text-xs">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                </svg>
+                Search
+            </button>
+            <button id="settings-nav-btn" class="flex flex-col items-center text-gray-400 hover:text-gray-600 transition-colors font-semibold text-xs">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a5.25 5.25 0 110 10.5 5.25 5.25 0 010-10.5z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.828 7.379l-2.094-1.205M7.228 16.621l2.094 1.205M16.828 16.621l-2.094 1.205M7.228 7.379l-2.094-1.205M18.75 12h-2.25M7.5 12H5.25" />
+                </svg>
+                Settings
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Player State
+        let isPlaying = false;
+        let currentSongIndex = 0;
+        let volumeLevel = 75;
+        let userInterests = ["Pop", "Rock", "Electronic"];
+        let uploadedSongs = [];
+        let audioQuality = "high";
+        let equalizer = "off";
+        let privateSession = false;
+        let explicitContent = true;
+        let playlist = [
+            { title: "Summer Vibes", artist: "Ocean Waves", albumArt: "https://placehold.co/256x256/4f46e5/FFFFFF?text=Summer", liked: false },
+            { title: "Mountain Dreams", artist: "Forest Echo", albumArt: "https://placehold.co/256x256/ec4899/FFFFFF?text=Dreams", liked: true },
+            { title: "City Lights", artist: "Urban Sound", albumArt: "https://placehold.co/256x256/3b82f6/FFFFFF?text=City", liked: false },
+            { title: "Desert Wind", artist: "Sandy Dunes", albumArt: "https://placehold.co/256x256/f59e0b/FFFFFF?text=Desert", liked: false },
+            { title: "Rainy Days", artist: "Cloudy Sky", albumArt: "https://placehold.co/256x256/06b6d4/FFFFFF?text=Rain", liked: true }
+        ];
+
+        // Notification settings
+        let notificationSettings = {
+            push: true,
+            email: true,
+            newMusic: false,
+            playlists: true
+        };
+
+        // DOM Elements
+        const screenContainer = document.getElementById('screen-container');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        const nextBtn = document.getElementById('next-btn');
+        const prevBtn = document.getElementById('prev-btn');
+        const songTitle = document.getElementById('song-title');
+        const artistName = document.getElementById('artist-name');
+        const albumArt = document.getElementById('album-art');
+        const albumArtContainer = document.getElementById('album-art-container');
+        const seekBar = document.getElementById('seek-bar');
+        const currentTimeEl = document.getElementById('current-time');
+        const totalTimeEl = document.getElementById('total-time');
+        const playlistEl = document.getElementById('playlist');
+        const searchResultsEl = document.getElementById('search-results');
+        
+        const homeNavBtn = document.getElementById('home-nav-btn');
+        const searchNavBtn = document.getElementById('search-nav-btn');
+        const settingsNavBtn = document.getElementById('settings-nav-btn');
+        const backToNowPlayingBtn = document.getElementById('back-to-now-playing-btn');
+        const backFromSettingsBtn = document.getElementById('back-from-settings-btn');
+
+        const popularTabBtn = document.getElementById('popular-tab');
+        const recentTabBtn = document.getElementById('recent-tab');
+        const searchTabBtn = document.getElementById('search-tab');
+        
+        const recommendationPanel = document.getElementById('recommendation-panel');
+        const searchPanel = document.getElementById('search-panel');
+        const searchInput = document.getElementById('search-input');
+        const searchBtn = document.getElementById('search-btn');
+        const searchLoading = document.getElementById('search-loading');
+
+        const generateRecommendationsBtn = document.getElementById('generate-recommendations-btn');
+        const recommendationPromptInput = document.getElementById('recommendation-prompt');
+        const recommendationsLoading = document.getElementById('recommendations-loading');
+        const recommendationsResults = document.getElementById('recommendations-results');
+        const aiPlaylist = document.getElementById('ai-playlist');
+
+        const signOutBtn = document.getElementById('sign-out-btn');
+        
+        // New elements for added features
+        const volumeControl = document.getElementById('volume-control');
+        const volumeLevelEl = document.getElementById('volume-level');
+        const settingsVolumeControl = document.getElementById('settings-volume-control');
+        const settingsVolumeLevelEl = document.getElementById('settings-volume-level');
+        const profileName = document.getElementById('profile-name');
+        const profilePicture = document.getElementById('profile-picture');
+        const changeProfilePic = document.getElementById('change-profile-pic');
+        const saveProfile = document.getElementById('save-profile');
+        const interestsContainer = document.getElementById('interests-container');
+        const newInterest = document.getElementById('new-interest');
+        const addInterestBtn = document.getElementById('add-interest-btn');
+        const chatbotToggle = document.getElementById('chatbot-toggle');
+        const chatbotPanel = document.getElementById('chatbot-panel');
+        const closeChatbot = document.getElementById('close-chatbot');
+        const chatbotOverlay = document.getElementById('chatbot-overlay');
+        const musicUpload = document.getElementById('music-upload');
+        const audioQualitySelect = document.getElementById('audio-quality');
+        const equalizerSelect = document.getElementById('equalizer');
+        
+        // Notification toggles
+        const pushNotifications = document.getElementById('push-notifications');
+        const emailNotifications = document.getElementById('email-notifications');
+        const newMusicAlerts = document.getElementById('new-music-alerts');
+        const playlistUpdates = document.getElementById('playlist-updates');
+        const privateSessionToggle = document.getElementById('private-session');
+        const explicitContentToggle = document.getElementById('explicit-content');
+
+        // Initialize the player
+        function initializePlayer() {
+            updateUI(currentSongIndex);
+            updatePlaylistUI();
+            updateNavButtons('home');
+            updateVolumeUI();
+            updateInterestsUI();
+            loadSettings();
+            
+            // Set initial total time
+            updateTotalTimeDisplay(180);
+        }
+
+        // Load settings from localStorage
+        function loadSettings() {
+            const savedVolume = localStorage.getItem('volumeLevel');
+            if (savedVolume) {
+                volumeLevel = parseInt(savedVolume);
+                updateVolumeUI();
+            }
+            
+            const savedQuality = localStorage.getItem('audioQuality');
+            if (savedQuality) {
+                audioQuality = savedQuality;
+                audioQualitySelect.value = audioQuality;
+            }
+            
+            const savedEqualizer = localStorage.getItem('equalizer');
+            if (savedEqualizer) {
+                equalizer = savedEqualizer;
+                equalizerSelect.value = equalizer;
+            }
+            
+            const savedNotifications = localStorage.getItem('notificationSettings');
+            if (savedNotifications) {
+                notificationSettings = JSON.parse(savedNotifications);
+                pushNotifications.checked = notificationSettings.push;
+                emailNotifications.checked = notificationSettings.email;
+                newMusicAlerts.checked = notificationSettings.newMusic;
+                playlistUpdates.checked = notificationSettings.playlists;
+            }
+            
+            const savedPrivacy = localStorage.getItem('privacySettings');
+            if (savedPrivacy) {
+                const privacySettings = JSON.parse(savedPrivacy);
+                privateSessionToggle.checked = privacySettings.privateSession;
+                explicitContentToggle.checked = privacySettings.explicitContent;
+            }
+            
+            const savedInterests = localStorage.getItem('userInterests');
+            if (savedInterests) {
+                userInterests = JSON.parse(savedInterests);
+                updateInterestsUI();
+            }
+        }
+
+        // Save settings to localStorage
+        function saveSettings() {
+            localStorage.setItem('volumeLevel', volumeLevel);
+            localStorage.setItem('audioQuality', audioQuality);
+            localStorage.setItem('equalizer', equalizer);
+            localStorage.setItem('notificationSettings', JSON.stringify(notificationSettings));
+            localStorage.setItem('privacySettings', JSON.stringify({
+                privateSession: privateSessionToggle.checked,
+                explicitContent: explicitContentToggle.checked
+            }));
+            localStorage.setItem('userInterests', JSON.stringify(userInterests));
+        }
+
+        // Update UI with current song
+        function updateUI(index) {
+            const song = playlist[index];
+            songTitle.innerText = song.title;
+            artistName.innerText = song.artist;
+            albumArt.src = song.albumArt;
+            
+            // Highlight the current song in the playlist
+            document.querySelectorAll('#playlist li').forEach((li, i) => {
+                li.classList.toggle('bg-indigo-50', i === index);
+            });
+        }
+
+        // Update playlist UI
+        function updatePlaylistUI() {
+            playlistEl.innerHTML = '';
+            playlist.forEach((song, index) => {
+                const li = createSongListItem(song, index);
+                playlistEl.appendChild(li);
+            });
+        }
+
+        // Create a playlist item
+        function createSongListItem(song, index) {
+            const li = document.createElement('li');
+            li.classList.add('flex', 'items-center', 'space-x-4', 'p-3', 'rounded-xl', 'cursor-pointer', 'transition-colors', 'hover:bg-gray-100');
+            li.innerHTML = `
+                <div class="relative w-12 h-12 rounded-lg overflow-hidden shadow">
+                    <img src="${song.albumArt}" alt="Album Art" class="object-cover w-full h-full">
+                </div>
+                <div class="flex-grow">
+                    <h4 class="font-semibold text-gray-800">${song.title}</h4>
+                    <p class="text-sm text-gray-500">${song.artist}</p>
+                </div>
+                <button class="like-btn ${song.liked ? 'active' : ''}">
+                    <svg xmlns="http://www.w3.org/2000/svg" ${song.liked ? 'fill="currentColor"' : 'fill="none"'} viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                    </svg>
+                </button>
+            `;
+            
+            li.addEventListener('click', () => {
+                currentSongIndex = index;
+                updateUI(currentSongIndex);
+                playSong();
+            });
+            
+            const likeBtn = li.querySelector('.like-btn');
+            likeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                likeBtn.classList.toggle('active');
+                playlist[index].liked = !playlist[index].liked;
+                
+                // Animate the like button
+                likeBtn.style.transform = 'scale(1.2)';
+                setTimeout(() => {
+                    likeBtn.style.transform = 'scale(1)';
+                }, 300);
+            });
+            
+            return li;
+        }
+
+        // Update volume UI
+        function updateVolumeUI() {
+            volumeControl.value = volumeLevel;
+            settingsVolumeControl.value = volumeLevel;
+            volumeLevelEl.innerText = `${volumeLevel}%`;
+            settingsVolumeLevelEl.innerText = `${volumeLevel}%`;
+        }
+
+        // Update interests UI
+        function updateInterestsUI() {
+            interestsContainer.innerHTML = '';
+            userInterests.forEach(interest => {
+                const tag = document.createElement('div');
+                tag.classList.add('tag');
+                tag.innerHTML = `
+                    ${interest}
+                    <span class="tag-remove" data-interest="${interest}">
+                        <i class="fas fa-times text-xs"></i>
+                    </span>
+                `;
+                interestsContainer.appendChild(tag);
+            });
+
+            // Add event listeners to remove buttons
+            document.querySelectorAll('.tag-remove').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const interestToRemove = e.currentTarget.getAttribute('data-interest');
+                    userInterests = userInterests.filter(i => i !== interestToRemove);
+                    updateInterestsUI();
+                    saveSettings();
+                });
+            });
+        }
+
+        // Generate AI playlist
+        function generateAIPlaylist(prompt) {
+            // Simulate AI playlist generation based on prompt
+            const genres = prompt.toLowerCase().includes('rock') ? ['Rock', 'Alternative'] :
+                          prompt.toLowerCase().includes('pop') ? ['Pop', 'Dance'] :
+                          prompt.toLowerCase().includes('jazz') ? ['Jazz', 'Blues'] :
+                          prompt.toLowerCase().includes('classical') ? ['Classical'] :
+                          prompt.toLowerCase().includes('party') ? ['Pop', 'Hip Hop', 'Dance'] :
+                          prompt.toLowerCase().includes('chill') ? ['Ambient', 'Lo-fi', 'Acoustic'] :
+                          ['Pop', 'Rock', 'Electronic'];
+            
+            // Filter playlist based on genres
+            const recommendedSongs = playlist.filter(song => {
+                const songGenre = song.artist.includes('Wave') ? 'Electronic' :
+                                 song.artist.includes('Echo') ? 'Rock' :
+                                 song.artist.includes('Sound') ? 'Pop' :
+                                 song.artist.includes('Dunes') ? 'World' :
+                                 song.artist.includes('Sky') ? 'Ambient' : 'Pop';
+                return genres.includes(songGenre);
+            });
+            
+            return recommendedSongs;
+        }
+
+        // Display AI playlist
+        function displayAIPlaylist(songs) {
+            aiPlaylist.innerHTML = '';
+            songs.forEach((song, index) => {
+                const li = document.createElement('li');
+                li.classList.add('flex', 'items-center', 'space-x-3', 'p-2', 'rounded-lg', 'bg-gray-50');
+                li.innerHTML = `
+                    <img src="${song.albumArt}" alt="Album Art" class="w-10 h-10 rounded">
+                    <div class="flex-grow">
+                        <p class="font-medium text-sm">${song.title}</p>
+                        <p class="text-xs text-gray-500">${song.artist}</p>
+                    </div>
+                    <button class="text-blue-600 text-sm add-to-playlist" data-index="${playlist.indexOf(song)}">
+                        <i class="fas fa-plus"></i> Add
+                    </button>
+                `;
+                aiPlaylist.appendChild(li);
+            });
+            
+            // Add event listeners to add buttons
+            document.querySelectorAll('.add-to-playlist').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const songIndex = parseInt(e.currentTarget.getAttribute('data-index'));
+                    // In a real app, this would add to a user playlist
+                    alert(`Added "${playlist[songIndex].title}" to your playlist!`);
+                });
+            });
+            
+            recommendationsResults.classList.remove('hidden');
+        }
+
+        // Play song function
+        function playSong() {
+            isPlaying = true;
+            playIcon.classList.add('hidden');
+            pauseIcon.classList.remove('hidden');
+            albumArtContainer.classList.add('playing');
+            
+            // Simulate playback progress
+            simulatePlayback();
+        }
+
+        // Pause song function
+        function pauseSong() {
+            isPlaying = false;
+            playIcon.classList.remove('hidden');
+            pauseIcon.classList.add('hidden');
+            albumArtContainer.classList.remove('playing');
+        }
+
+        // Next song function
+        function nextSong() {
+            currentSongIndex = (currentSongIndex + 1) % playlist.length;
+            updateUI(currentSongIndex);
+            playSong();
+        }
+
+        // Previous song function
+        function prevSong() {
+            currentSongIndex = (currentSongIndex - 1 + playlist.length) % playlist.length;
+            updateUI(currentSongIndex);
+            playSong();
+        }
+
+        // Format time function
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = Math.floor(seconds % 60);
+            return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+
+        // Update total time display
+        function updateTotalTimeDisplay(duration) {
+            totalTimeEl.innerText = formatTime(duration);
+        }
+
+        // Simulate playback progress
+        function simulatePlayback() {
+            let currentTime = 0;
+            const duration = 180; // 3 minutes in seconds
+            
+            const updateProgress = () => {
+                if (!isPlaying) return;
+                
+                currentTime += 1;
+                const progress = (currentTime / duration) * 100;
+                seekBar.style.width = `${progress}%`;
+                currentTimeEl.innerText = formatTime(currentTime);
+                
+                if (currentTime < duration) {
+                    setTimeout(updateProgress, 1000);
+                } else {
+                    // Song ended, play next
+                    nextSong();
+                }
+            };
+            
+            updateProgress();
+        }
+
+        // Switch tabs function
+        function switchTab(tab) {
+            // Remove active styles from all tabs
+            popularTabBtn.classList.remove('text-white', 'shadow-md');
+            popularTabBtn.style.background = 'none';
+            recentTabBtn.classList.remove('text-white', 'shadow-md');
+            recentTabBtn.style.background = 'none';
+            searchTabBtn.classList.remove('text-white', 'shadow-md');
+            searchTabBtn.style.background = 'none';
+            
+            // Apply gray background to all
+            popularTabBtn.classList.add('text-gray-500', 'bg-gray-100');
+            recentTabBtn.classList.add('text-gray-500', 'bg-gray-100');
+            searchTabBtn.classList.add('text-gray-500', 'bg-gray-100');
+            
+            // Hide all content panels
+            recommendationPanel.classList.add('hidden');
+            searchPanel.classList.add('hidden');
+            playlistEl.classList.add('hidden');
+            searchResultsEl.classList.add('hidden');
+            recommendationsResults.classList.add('hidden');
+
+            // Apply active styles and show the correct content
+            switch (tab) {
+                case 'popular':
+                    popularTabBtn.classList.remove('text-gray-500', 'bg-gray-100');
+                    popularTabBtn.classList.add('text-white', 'shadow-md');
+                    popularTabBtn.style.background = 'linear-gradient(90deg, #a855f7, #3b82f6)';
+                    recommendationPanel.classList.remove('hidden');
+                    playlistEl.classList.remove('hidden');
+                    break;
+                case 'recent':
+                    recentTabBtn.classList.remove('text-gray-500', 'bg-gray-100');
+                    recentTabBtn.classList.add('text-white', 'shadow-md');
+                    recentTabBtn.style.background = 'linear-gradient(90deg, #a855f7, #3b82f6)';
+                    playlistEl.classList.remove('hidden');
+                    break;
+                case 'search':
+                    searchTabBtn.classList.remove('text-gray-500', 'bg-gray-100');
+                    searchTabBtn.classList.add('text-white', 'shadow-md');
+                    searchTabBtn.style.background = 'linear-gradient(90deg, #a855f7, #3b82f6)';
+                    searchPanel.classList.remove('hidden');
+                    break;
+            }
+        }
+        
+        // Update navigation buttons
+        function updateNavButtons(active) {
+            const navButtons = [homeNavBtn, searchNavBtn, settingsNavBtn];
+            navButtons.forEach(btn => {
+                btn.classList.remove('text-indigo-600');
+                btn.classList.add('text-gray-400');
+            });
+            if (active === 'home') {
+                homeNavBtn.classList.remove('text-gray-400');
+                homeNavBtn.classList.add('text-indigo-600');
+            } else if (active === 'search') {
+                searchNavBtn.classList.remove('text-gray-400');
+                searchNavBtn.classList.add('text-indigo-600');
+            } else if (active === 'settings') {
+                settingsNavBtn.classList.remove('text-gray-400');
+                settingsNavBtn.classList.add('text-indigo-600');
+            }
+        }
+
+        // Handle music file uploads
+        function handleMusicUpload(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    if (file.type.startsWith('audio/')) {
+                        const fileName = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
+                        const songUrl = URL.createObjectURL(file);
+                        
+                        // Add to uploaded songs
+                        uploadedSongs.push({
+                            title: fileName,
+                            artist: "Your Library",
+                            albumArt: "https://placehold.co/256x256/3b82f6/FFFFFF?text=Upload",
+                            file: songUrl,
+                            isUploaded: true
+                        });
+                    }
+                }
+                
+                // Add uploaded songs to playlist
+                playlist = [...uploadedSongs, ...playlist];
+                updatePlaylistUI();
+                alert(`Added ${files.length} song(s) to your library!`);
+            }
+        }
+
+        // Event Listeners
+        playPauseBtn.addEventListener('click', () => {
+            if (isPlaying) {
+                pauseSong();
+            } else {
+                playSong();
+            }
+        });
+
+        nextBtn.addEventListener('click', nextSong);
+        prevBtn.addEventListener('click', prevSong);
+
+        homeNavBtn.addEventListener('click', () => {
+            screenContainer.classList.remove('playlist-view', 'settings-view');
+            updateNavButtons('home');
+        });
+        
+        searchNavBtn.addEventListener('click', () => {
+            screenContainer.classList.add('playlist-view');
+            screenContainer.classList.remove('settings-view');
+            updateNavButtons('search');
+            switchTab('popular');
+        });
+        
+        settingsNavBtn.addEventListener('click', () => {
+            screenContainer.classList.remove('playlist-view');
+            screenContainer.classList.add('settings-view');
+            updateNavButtons('settings');
+        });
+
+        backToNowPlayingBtn.addEventListener('click', () => {
+            screenContainer.classList.remove('playlist-view');
+            updateNavButtons('home');
+        });
+
+        backFromSettingsBtn.addEventListener('click', () => {
+            screenContainer.classList.remove('settings-view');
+            updateNavButtons('home');
+        });
+
+        popularTabBtn.addEventListener('click', () => switchTab('popular'));
+        recentTabBtn.addEventListener('click', () => switchTab('recent'));
+        searchTabBtn.addEventListener('click', () => switchTab('search'));
+
+        generateRecommendationsBtn.addEventListener('click', () => {
+            const prompt = recommendationPromptInput.value;
+            if (prompt.trim() !== '') {
+                recommendationsLoading.classList.remove('hidden');
+                setTimeout(() => {
+                    recommendationsLoading.classList.add('hidden');
+                    const recommendedSongs = generateAIPlaylist(prompt);
+                    displayAIPlaylist(recommendedSongs);
+                }, 1500);
+            }
+        });
+
+        searchBtn.addEventListener('click', () => {
+            const query = searchInput.value;
+            if (query.trim() !== '') {
+                searchLoading.classList.remove('hidden');
+                setTimeout(() => {
+                    searchLoading.classList.add('hidden');
+                    alert('Search completed!');
+                }, 1500);
+            }
+        });
+
+        signOutBtn.addEventListener('click', () => {
+            alert('Sign out clicked');
+        });
+
+        // Volume control event listeners
+        volumeControl.addEventListener('input', () => {
+            volumeLevel = volumeControl.value;
+            updateVolumeUI();
+            saveSettings();
+        });
+
+        settingsVolumeControl.addEventListener('input', () => {
+            volumeLevel = settingsVolumeControl.value;
+            updateVolumeUI();
+            saveSettings();
+        });
+
+        // Profile editing
+        changeProfilePic.addEventListener('click', () => {
+            const newImageUrl = prompt('Enter new profile picture URL:');
+            if (newImageUrl) {
+                profilePicture.src = newImageUrl;
+            }
+        });
+
+        saveProfile.addEventListener('click', () => {
+            alert('Profile saved successfully!');
+        });
+
+        // Interests management
+        addInterestBtn.addEventListener('click', () => {
+            const interest = newInterest.value.trim();
+            if (interest && !userInterests.includes(interest)) {
+                userInterests.push(interest);
+                updateInterestsUI();
+                newInterest.value = '';
+                saveSettings();
+            }
+        });
+
+        newInterest.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addInterestBtn.click();
+            }
+        });
+
+        // Chatbot integration
+        chatbotToggle.addEventListener('click', () => {
+            chatbotPanel.classList.add('open');
+            chatbotOverlay.classList.add('open');
+        });
+
+        closeChatbot.addEventListener('click', () => {
+            chatbotPanel.classList.remove('open');
+            chatbotOverlay.classList.remove('open');
+        });
+
+        chatbotOverlay.addEventListener('click', () => {
+            chatbotPanel.classList.remove('open');
+            chatbotOverlay.classList.remove('open');
+        });
+
+        // Music upload handling
+        musicUpload.addEventListener('change', handleMusicUpload);
+
+        // Settings change handlers
+        audioQualitySelect.addEventListener('change', () => {
+            audioQuality = audioQualitySelect.value;
+            saveSettings();
+        });
+
+        equalizerSelect.addEventListener('change', () => {
+            equalizer = equalizerSelect.value;
+            saveSettings();
+        });
+
+        // Notification toggles
+        pushNotifications.addEventListener('change', () => {
+            notificationSettings.push = pushNotifications.checked;
+            saveSettings();
+        });
+
+        emailNotifications.addEventListener('change', () => {
+            notificationSettings.email = emailNotifications.checked;
+            saveSettings();
+        });
+
+        newMusicAlerts.addEventListener('change', () => {
+            notificationSettings.newMusic = newMusicAlerts.checked;
+            saveSettings();
+        });
+
+        playlistUpdates.addEventListener('change', () => {
+            notificationSettings.playlists = playlistUpdates.checked;
+            saveSettings();
+        });
+
+        privateSessionToggle.addEventListener('change', () => {
+            saveSettings();
+        });
+
+        explicitContentToggle.addEventListener('change', () => {
+            saveSettings();
+        });
+
+        // Initialize the player when page loads
+        window.addEventListener('load', initializePlayer);
+    </script>
+</body>
+</html>
